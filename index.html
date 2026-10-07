@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#16130f">
+<title>LP Scan</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --bg:#16130f; --panel:#211d18; --panel2:#2b261f; --line:#3a332a;
+  --text:#f3ece2; --muted:#a89c8c; --accent:#e8a33d; --accent-ink:#1b1408;
+  --good:#7fc28a; --bad:#e3735e; --radius:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--bg);border-bottom:1px solid var(--line)}
+header h1{font-size:20px;margin:0;flex:1;letter-spacing:.3px}
+.disc{width:26px;height:26px;border-radius:50%;background:radial-gradient(circle,var(--accent) 0 18%,#111 19% 100%);box-shadow:0 0 0 2px #333 inset}
+main{padding:16px;max-width:720px;margin:0 auto}
+.view{display:none}.view.on{display:block}
+button,.btn{appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:10px 14px;font:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;text-decoration:none}
+button:disabled{opacity:.5}
+.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.big{width:100%;padding:18px;font-size:18px;border-radius:var(--radius)}
+.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin:12px 0}
+label.f{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input,select,textarea{width:100%;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit}
+textarea{min-height:60px}
+.muted{color:var(--muted)}.small{font-size:13px}
+.status{min-height:22px;margin:10px 0;color:var(--muted)}
+.status.err{color:var(--bad)}
+.preview{width:100%;max-height:280px;object-fit:contain;border-radius:10px;background:#000;display:none;margin-top:12px}
+.cand{display:flex;gap:12px;align-items:center;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--panel);margin:8px 0;cursor:pointer;width:100%;text-align:left}
+.cand img,.item img{width:64px;height:64px;object-fit:cover;border-radius:8px;background:#000;flex:none}
+.cand .t,.item .t{font-weight:600}
+.item{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.item .grow,.cand .grow{flex:1;min-width:0}
+.item .t,.item .s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.val{font-weight:700;font-size:18px;text-align:right;white-space:nowrap}
+.up{color:var(--good)}.down{color:var(--bad)}
+.total{display:flex;justify-content:space-between;align-items:baseline}
+.total b{font-size:28px;color:var(--accent)}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--panel);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:6}
+nav button{flex:1;border:0;border-radius:0;background:none;padding:14px 0;color:var(--muted);flex-direction:column;gap:2px;font-size:13px}
+nav button.on{color:var(--accent)}
+nav svg{width:22px;height:22px}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10;display:none;overflow:auto}
+.sheet.on{display:block}
+.sheet .inner{background:var(--bg);min-height:100%;max-width:720px;margin:0 auto;padding:16px 16px 40px}
+.hero{display:flex;gap:14px;align-items:flex-start}
+.hero img{width:120px;height:120px;object-fit:cover;border-radius:10px;background:#000;flex:none}
+.hero h2{margin:0 0 4px;font-size:20px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td{padding:6px 0;border-bottom:1px solid var(--line)}td:last-child{text-align:right}
+tr.sel td{color:var(--accent);font-weight:700}
+.est{font-size:34px;font-weight:800;color:var(--accent);margin:6px 0 0}
+.pill{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.links{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--muted);border-top-color:transparent;border-radius:50%;animation:s 1s linear infinite;vertical-align:-2px}
+@keyframes s{to{transform:rotate(360deg)}}
+.hidden{display:none!important}
+.spark{width:100%;height:60px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:10px;z-index:20;display:none}
+</style>
+</head>
+<body>
+<header><div class="disc"></div><h1>LP Scan</h1><button id="btnSettings" aria-label="Settings">⚙︎</button></header>
+
+<main>
+<!-- SCAN -->
+<section id="vScan" class="view on">
+  <div id="setupNote" class="card hidden">
+    <b>Setup needed.</b> <span class="muted">Add your free Discogs token (and a free Gemini key to read covers) in Settings.</span>
+    <div style="margin-top:10px"><button class="primary" onclick="openSettings()">Open Settings</button></div>
+  </div>
+
+  <label class="btn primary big" for="camInput">📷 Photograph a record jacket</label>
+  <input id="camInput" type="file" accept="image/*" capture="environment" class="hidden">
+  <div class="row" style="margin-top:8px">
+    <label class="btn" for="galInput">Choose photo</label>
+    <input id="galInput" type="file" accept="image/*" class="hidden">
+    <button id="btnManual">Type it in</button>
+  </div>
+  <img id="preview" class="preview" alt="">
+  <div id="scanStatus" class="status"></div>
+
+  <div id="manualBox" class="card hidden">
+    <div class="row"><div><label class="f">Artist</label><input id="mArtist"></div><div><label class="f">Title</label><input id="mTitle"></div></div>
+    <div class="row"><div><label class="f">Catalog #</label><input id="mCatno"></div><div><label class="f">Barcode</label><input id="mBarcode" inputmode="numeric"></div></div>
+    <div class="row"><div><label class="f">Label</label><input id="mLabel"></div><div><label class="f">Year</label><input id="mYear" inputmode="numeric"></div></div>
+    <button id="btnSearch" class="primary" style="width:100%;margin-top:12px">Search Discogs</button>
+  </div>
+
+  <div id="candBox"></div>
+</section>
+
+<!-- COLLECTION -->
+<section id="vList" class="view">
+  <div class="card total"><div><div class="muted small">Collection estimate</div><b id="totalVal">—</b></div><div class="muted small" id="totalCount"></div></div>
+  <div class="row">
+    <input id="filter" placeholder="Filter…" style="flex:2">
+    <select id="sort"><option value="recent">Recent</option><option value="value">Value</option><option value="artist">Artist</option><option value="stale">Oldest price</option></select>
+  </div>
+  <div class="row" style="margin-top:8px"><button id="btnRefreshAll">↻ Refresh all values</button></div>
+  <div id="refreshAllStatus" class="status"></div>
+  <div id="list"></div>
+</section>
+</main>
+
+<nav>
+  <button id="navScan" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.5"/></svg>Scan</button>
+  <button id="navList"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/></svg>Collection</button>
+</nav>
+
+<!-- DETAIL -->
+<div id="detail" class="sheet"><div class="inner" id="detailInner"></div></div>
+
+<!-- SETTINGS -->
+<div id="settings" class="sheet"><div class="inner">
+  <div class="row" style="align-items:center"><h2 style="margin:0">Settings</h2><button style="flex:none" onclick="history.back()">Done</button></div>
+  <div class="card">
+    <b>Discogs</b> <span class="pill">required</span>
+    <label class="f">Personal access token</label>
+    <input id="sDiscogs" type="password" autocomplete="off" placeholder="from discogs.com/settings/developers">
+    <label class="f">Currency</label>
+    <select id="sCurr"><option>USD</option><option>CAD</option><option>EUR</option><option>GBP</option><option>AUD</option><option>JPY</option></select>
+    <p class="small muted">Optional: if you fill in Discogs seller settings (free), you also get suggested prices by condition, in your seller-settings currency.</p>
+  </div>
+  <div class="card">
+    <b>Cover recognition</b>
+    <label class="f">Read the cover with</label>
+    <select id="sIdProvider">
+      <option value="gemini">Google Gemini (free tier)</option>
+      <option value="none">Barcode only (no key needed)</option>
+      <option value="claude">Claude (paid API)</option>
+    </select>
+    <p class="small muted">Barcodes are always scanned on the phone first. Gemini's free tier may use what you send to improve Google's products.</p>
+    <label class="f">Gemini API key</label>
+    <input id="sGemini" type="password" autocomplete="off" placeholder="from aistudio.google.com/apikey">
+    <label class="f">Gemini model</label>
+    <input id="sGeminiModel" placeholder="gemini-3.6-flash">
+  </div>
+  <div class="card">
+    <b>Claude (Anthropic API)</b> <span class="pill">optional · paid</span>
+    <p class="small muted">Only needed for the automatic sold-price check, or if you pick Claude for cover recognition. Leave blank to keep everything free.</p>
+    <label class="f">API key</label>
+    <input id="sClaude" type="password" autocomplete="off" placeholder="sk-ant-…">
+    <label class="f">Model for cover recognition</label>
+    <input id="sModelId" placeholder="claude-haiku-4-5-20251001">
+    <label class="f">Model for sold-price check (uses web search)</label>
+    <input id="sModelWeb" placeholder="claude-sonnet-5-5">
+    <label class="f"><input id="sEbayAll" type="checkbox" style="width:auto"> Include sold-price check in “Refresh all” (costs more)</label>
+  </div>
+  <div class="card">
+    <b>Defaults</b>
+    <label class="f">Default condition for new records</label>
+    <select id="sCond"></select>
+  </div>
+  <div class="card">
+    <b>Backup</b>
+    <p class="small muted">History lives on this phone only. Export a backup now and then.</p>
+    <div class="row"><button id="btnExport">Export JSON</button><label class="btn" for="importInput">Import JSON</label></div>
+    <input id="importInput" type="file" accept="application/json,.json" class="hidden">
+  </div>
+  <p class="small muted">Keys are stored only in this browser on this device.</p>
+</div></div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+"use strict";
+/* ---------- constants ---------- */
+const CONDS = ["Mint (M)","Near Mint (NM or M-)","Very Good Plus (VG+)","Very Good (VG)","Good Plus (G+)","Good (G)","Fair (F)","Poor (P)"];
+const SHORT = c => (c.match(/\(([^)]+)\)/)||[,c])[1];
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+
+/* ---------- settings ---------- */
+const S = {
+  get(){ try { return JSON.parse(localStorage.getItem("lpscan.settings")||"{}"); } catch { return {}; } },
+  set(v){ try { localStorage.setItem("lpscan.settings", JSON.stringify(v)); } catch {} }
+};
+let cfg = Object.assign({curr:"USD", cond:"Very Good Plus (VG+)", modelId:"", modelWeb:"", ebayAll:false, discogs:"", claude:"",
+  idProvider:"gemini", gemini:"", geminiModel:""}, S.get());
+const geminiModel = () => cfg.geminiModel || "gemini-3.6-flash";
+const canReadCovers = () => (cfg.idProvider === "gemini" && cfg.gemini) || (cfg.idProvider === "claude" && cfg.claude);
+const modelId = () => cfg.modelId || "claude-haiku-4-5-20251001";
+const modelWeb = () => cfg.modelWeb || "claude-sonnet-5-5";
+const money = (v, cur) => v == null || isNaN(v) ? "—" :
+  new Intl.NumberFormat(undefined, {style:"currency", currency: cur || cfg.curr, maximumFractionDigits: v >= 100 ? 0 : 2}).format(v);
+
+/* ---------- IndexedDB ---------- */
+const DB = (() => {
+  let dbp;
+  const open = () => dbp ||= new Promise((res, rej) => {
+    const r = indexedDB.open("lpscan", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("records", {keyPath:"id"});
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  const tx = async (mode, fn) => { const db = await open(); return new Promise((res, rej) => {
+    const t = db.transaction("records", mode); const st = t.objectStore("records"); const out = fn(st);
+    t.oncomplete = () => res(out && out.result !== undefined ? out.result : out); t.onerror = () => rej(t.error); }); };
+  return {
+    all: () => tx("readonly", s => s.getAll()),
+    put: rec => tx("readwrite", s => { s.put(rec); }),
+    del: id => tx("readwrite", s => { s.delete(id); }),
+  };
+})();
+
+/* ---------- Discogs ---------- */
+const DG = "https://api.discogs.com";
+async function dg(path, params = {}) {
+  if (!cfg.discogs) throw new Error("Add your Discogs token in Settings.");
+  const u = new URL(DG + path);
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "") u.searchParams.set(k, v);
+  u.searchParams.set("token", cfg.discogs);   // query-string token avoids a CORS preflight
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const r = await fetch(u);
+    if (r.status === 429) { await sleep(5000 * (attempt + 1)); continue; }
+    if (r.status === 404) return null;
+    if (!r.ok) { let m = ""; try { m = (await r.json()).message; } catch {} throw new Error(`Discogs ${r.status}${m ? ": " + m : ""}`); }
+    return r.json();
+  }
+  throw new Error("Discogs rate limit — wait a minute and try again.");
+}
+
+async function searchDiscogs(q) {
+  const tries = [];
+  const bc = (q.barcode || "").replace(/\D/g, "");
+  if (bc.length >= 8) tries.push({barcode: bc});
+  if (q.catno && q.artist) tries.push({catno: q.catno, artist: q.artist, format: "Vinyl"});
+  if (q.catno && q.label) tries.push({catno: q.catno, label: q.label, format: "Vinyl"});
+  if (q.artist && q.title) tries.push({artist: q.artist, release_title: q.title, format: "Vinyl"});
+  if (q.catno) tries.push({catno: q.catno, format: "Vinyl"});
+  const free = [q.artist, q.title].filter(Boolean).join(" ");
+  if (free) tries.push({q: free, format: "Vinyl"});
+  for (const t of tries) {
+    const r = await dg("/database/search", {...t, type: "release", per_page: 15});
+    if (r && r.results && r.results.length) {
+      const res = r.results;
+      if (q.year) res.sort((a, b) => Math.abs((+a.year||0) - q.year) - Math.abs((+b.year||0) - q.year));
+      return res;
+    }
+  }
+  return [];
+}
+
+async function fetchValues(discogsId) {
+  const rel = await dg(`/releases/${discogsId}`, {curr_abbr: cfg.curr});
+  if (!rel) throw new Error("Release not found on Discogs.");
+  let sugg = null, stats = null, suggNote = "";
+  try { sugg = await dg(`/marketplace/price_suggestions/${discogsId}`); }
+  catch (e) { suggNote = "Condition prices appear here if you fill in your free Discogs seller settings (optional)."; }
+  try { stats = await dg(`/marketplace/stats/${discogsId}`, {curr_abbr: cfg.curr}); } catch {}
+  const suggested = {};
+  let suggCur = null;
+  if (sugg) for (const c of CONDS) if (sugg[c] && sugg[c].value != null) { suggested[c] = +sugg[c].value; suggCur = sugg[c].currency; }
+  const lab = (rel.labels || [])[0] || {};
+  return {
+    meta: {
+      artist: (rel.artists_sort || (rel.artists||[]).map(a => a.name).join(", ")).replace(/\s\(\d+\)$/, ""),
+      title: rel.title, year: rel.year || "", country: rel.country || "",
+      label: lab.name || "", catno: lab.catno || "",
+      format: (rel.formats || []).map(f => [f.name, ...(f.descriptions||[])].join(" ")).join("; "),
+      coverUrl: (rel.images || [])[0]?.uri || rel.thumb || "",
+      masterId: rel.master_id || null, uri: rel.uri || `https://www.discogs.com/release/${discogsId}`
+    },
+    values: {
+      suggested, suggCur: suggCur || cfg.curr, suggNote,
+      lowest: stats?.lowest_price?.value ?? rel.lowest_price ?? null,
+      lowestCur: stats?.lowest_price?.currency || cfg.curr,
+      numForSale: stats?.num_for_sale ?? rel.num_for_sale ?? null,
+      have: rel.community?.have ?? null, want: rel.community?.want ?? null,
+      fetchedAt: new Date().toISOString()
+    }
+  };
+}
+
+/* ---------- Claude ---------- */
+async function claude(body) {
+  if (!cfg.claude) throw new Error("No Anthropic API key in Settings.");
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {"content-type":"application/json","x-api-key":cfg.claude,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+    body: JSON.stringify(body)
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(`Claude API ${r.status}: ${j.error?.message || "error"}`);
+  return j;
+}
+function parseJSON(text) {
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const t = fence ? fence[1] : text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
+  return JSON.parse(t);
+}
+async function identifyCover(b64) {
+  return cfg.idProvider === "claude" ? identifyClaude(b64) : identifyGemini(b64);
+}
+async function identifyGemini(b64) {
+  if (!cfg.gemini) throw new Error("No Gemini API key in Settings.");
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel())}:generateContent?key=${encodeURIComponent(cfg.gemini)}`;
+  const r = await fetch(url, {method: "POST", headers: {"content-type": "application/json"}, body: JSON.stringify({
+    contents: [{parts: [{inline_data: {mime_type: "image/jpeg", data: b64}}, {text: ID_PROMPT}]}],
+    generationConfig: {responseMimeType: "application/json", temperature: 0.1}
+  })});
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 429) throw new Error("Gemini free-tier limit reached — try again in a minute, or type the details in.");
+  if (!r.ok) throw new Error(`Gemini ${r.status}: ${j.error?.message || "error"}`);
+  const text = (j.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("\n");
+  if (!text) throw new Error("Gemini couldn't read this photo — try another angle or type the details in.");
+  return parseJSON(text);
+}
+async function identifyClaude(b64) {
+  const j = await claude({model: modelId(), max_tokens: 600, messages:[{role:"user", content:[
+    {type:"image", source:{type:"base64", media_type:"image/jpeg", data:b64}}, {type:"text", text:ID_PROMPT}]}]});
+  const text = (j.content||[]).filter(b => b.type === "text").map(b => b.text).join("\n");
+  return parseJSON(text);
+}
+const ID_PROMPT = `This is a photo of a vinyl record jacket (front, back, spine or label). Read every visible clue and identify the release.
+Reply with ONLY a JSON object:
+{"artist":"","title":"","label":"","catno":"","barcode":"","year":null,"country":"","notes":"","confidence":"high|medium|low"}
+- catno: the catalog number exactly as printed (e.g. "SD 19129", "PCS 7027").
+- barcode: digits only if a barcode number is legible, else "".
+- year: number if printed or confidently known for this pressing, else null.
+- notes: anything that distinguishes the pressing (reissue, club edition, colored vinyl, promo stamp, hype sticker).
+Use "" for anything you cannot see or infer.`;
+async function ebayCheck(rec) {
+  const desc = `${rec.artist} – ${rec.title}` + [rec.label, rec.catno, rec.year, rec.country, rec.format].filter(Boolean).map(x => ` | ${x}`).join("");
+  const prompt = `Estimate the current market value of this vinyl record from recent SOLD (completed) sales, not asking prices.
+Record: ${desc}
+Condition of my copy: ${rec.condition}
+Discogs release id: ${rec.discogsId}
+
+Search for recent eBay sold/completed listings, Popsike results, and Discogs sales-history statistics (last sold / low / median / high) for this release or the closest matching pressing. Prefer sales from the last 12 months. Ignore lots, CDs, cassettes and different pressings unless nothing else exists.
+
+Finish with ONLY a JSON object (amounts in ${cfg.curr}):
+{"avg":number|null,"low":number|null,"high":number|null,"count":number,"discogsMedian":number|null,"basis":"short sentence on what the numbers are based on","sources":[{"title":"","url":""}]}`;
+  let messages = [{role:"user", content: prompt}];
+  let j;
+  for (let i = 0; i < 4; i++) {
+    j = await claude({model: modelWeb(), max_tokens: 2000, messages, tools:[{type:"web_search_20250305", name:"web_search", max_uses:5}]});
+    if (j.stop_reason !== "pause_turn") break;
+    messages = [...messages, {role:"assistant", content: j.content}];
+  }
+  const texts = (j.content||[]).filter(b => b.type === "text").map(b => b.text);
+  const out = parseJSON(texts.join("\n"));
+  return {avg: num(out.avg), low: num(out.low), high: num(out.high), count: +out.count || 0,
+    discogsMedian: num(out.discogsMedian), basis: String(out.basis || ""),
+    sources: (out.sources || []).filter(s => s && /^https?:/.test(s.url)).slice(0, 6),
+    fetchedAt: new Date().toISOString()};
+}
+const num = v => v == null || v === "" || isNaN(+v) ? null : +v;
+
+/* ---------- images ---------- */
+function loadImg(file) {
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+}
+function toJpeg(img, max, q) {
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", q);
+}
+async function findBarcode(img) {
+  if (!("BarcodeDetector" in window)) return "";
+  try {
+    const d = new BarcodeDetector({formats:["ean_13","upc_a","ean_8","upc_e"]});
+    const codes = await d.detect(img);
+    return codes[0]?.rawValue || "";
+  } catch { return ""; }
+}
+
+/* ---------- value helpers ---------- */
+// Sold prices you looked up yourself: the average of entries within 90 days of the newest one.
+function mySold(rec) {
+  const m = (rec.sold || []).filter(x => x.price != null);
+  if (!m.length) return null;
+  const newest = m.reduce((a, b) => a.date > b.date ? a : b).date;
+  const cutoff = new Date(new Date(newest) - 90 * 86400000).toISOString().slice(0, 10);
+  const recent = m.filter(x => x.date >= cutoff);
+  return {avg: recent.reduce((s, x) => s + x.price, 0) / recent.length, n: recent.length, newest};
+}
+function estimate(rec) {
+  const v = rec.values || {};
+  const ms = mySold(rec);
+  if (ms) return {value: ms.avg, cur: cfg.curr, src: `Your sold-price checks (${ms.n}, latest ${ms.newest})`};
+  const s = v.suggested?.[rec.condition];
+  if (s != null) return {value: s, cur: v.suggCur, src: `Discogs suggestion (${SHORT(rec.condition)})`};
+  if (rec.ebay?.avg != null) return {value: rec.ebay.avg, cur: cfg.curr, src: "Claude sold-price estimate"};
+  if (v.lowest != null) return {value: v.lowest, cur: v.lowestCur, src: "Lowest Discogs listing right now"};
+  return {value: null, cur: cfg.curr, src: "No price data yet — check the links below"};
+}
+function snapshot(rec) {
+  const e = estimate(rec);
+  const snap = {date: today(), est: e.value, lowest: rec.values?.lowest ?? null, ebay: rec.ebay?.avg ?? null, mine: mySold(rec)?.avg ?? null};
+  rec.history = (rec.history || []).filter(h => h.date !== snap.date);
+  rec.history.push(snap);
+  rec.history.sort((a, b) => a.date.localeCompare(b.date));
+}
+function delta(rec) {
+  const h = (rec.history || []).filter(x => x.est != null);
+  if (h.length < 2) return null;
+  return h[h.length - 1].est - h[h.length - 2].est;
+}
+async function refreshRecord(rec, withEbay) {
+  const {meta, values} = await fetchValues(rec.discogsId);
+  Object.assign(rec, {coverUrl: rec.coverUrl || meta.coverUrl, uri: meta.uri, masterId: meta.masterId, values});
+  if (withEbay && cfg.claude) { try { rec.ebay = await ebayCheck(rec); } catch (e) { rec.ebayError = e.message; } }
+  rec.updatedAt = new Date().toISOString();
+  snapshot(rec);
+  await DB.put(rec);
+  return rec;
+}
+
+/* ---------- UI: navigation ---------- */
+function show(view) {
+  $("vScan").classList.toggle("on", view === "scan"); $("vList").classList.toggle("on", view === "list");
+  $("navScan").classList.toggle("on", view === "scan"); $("navList").classList.toggle("on", view === "list");
+  if (view === "list") renderList();
+}
+$("navScan").onclick = () => show("scan");
+$("navList").onclick = () => show("list");
+function openSheet(id) { $(id).classList.add("on"); document.body.style.overflow = "hidden"; history.pushState({sheet:id}, ""); }
+function closeSheet(id) { $(id).classList.remove("on"); document.body.style.overflow = ""; }
+window.addEventListener("popstate", () => { ["detail","settings"].forEach(closeSheet); renderList(); });
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2500); }
+function setStatus(el, msg, err) { el.innerHTML = msg; el.classList.toggle("err", !!err); }
+
+/* ---------- UI: settings ---------- */
+$("sCond").innerHTML = CONDS.map(c => `<option>${esc(c)}</option>`).join("");
+function openSettings() {
+  $("sIdProvider").value = cfg.idProvider; $("sGemini").value = cfg.gemini; $("sGeminiModel").value = cfg.geminiModel;
+  $("sDiscogs").value = cfg.discogs; $("sClaude").value = cfg.claude; $("sCurr").value = cfg.curr;
+  $("sModelId").value = cfg.modelId; $("sModelWeb").value = cfg.modelWeb; $("sCond").value = cfg.cond; $("sEbayAll").checked = cfg.ebayAll;
+  openSheet("settings");
+}
+$("btnSettings").onclick = openSettings;
+["sDiscogs","sClaude","sCurr","sModelId","sModelWeb","sCond","sEbayAll","sIdProvider","sGemini","sGeminiModel"].forEach(id => $(id).addEventListener("change", () => {
+  cfg = {...cfg, idProvider: $("sIdProvider").value, gemini: $("sGemini").value.trim(), geminiModel: $("sGeminiModel").value.trim(),
+    discogs: $("sDiscogs").value.trim(), claude: $("sClaude").value.trim(), curr: $("sCurr").value,
+    modelId: $("sModelId").value.trim(), modelWeb: $("sModelWeb").value.trim(), cond: $("sCond").value, ebayAll: $("sEbayAll").checked};
+  S.set(cfg); checkSetup();
+}));
+function checkSetup() { $("setupNote").classList.toggle("hidden", !!cfg.discogs); }
+
+$("btnExport").onclick = async () => {
+  const data = {app:"lpscan", version:1, exportedAt:new Date().toISOString(), records: await DB.all()};
+  const blob = new Blob([JSON.stringify(data)], {type:"application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `lpscan-backup-${today()}.json`; a.click();
+};
+$("importInput").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    const recs = data.records || [];
+    for (const r of recs) if (r.id && r.discogsId) await DB.put(r);
+    toast(`Imported ${recs.length} records`); renderList();
+  } catch (err) { toast("Import failed: " + err.message); }
+  e.target.value = "";
+};
+
+/* ---------- UI: scan flow ---------- */
+let pendingThumb = "", pendingClues = null;
+$("camInput").onchange = e => handlePhoto(e.target.files[0], e.target);
+$("galInput").onchange = e => handlePhoto(e.target.files[0], e.target);
+$("btnManual").onclick = () => { $("manualBox").classList.toggle("hidden"); };
+$("btnSearch").onclick = () => runSearch({
+  artist: $("mArtist").value.trim(), title: $("mTitle").value.trim(), catno: $("mCatno").value.trim(),
+  barcode: $("mBarcode").value.trim(), label: $("mLabel").value.trim(), year: +$("mYear").value || null
+});
+
+async function handlePhoto(file, input) {
+  if (!file) return;
+  input.value = "";
+  const st = $("scanStatus"); $("candBox").innerHTML = "";
+  try {
+    const img = await loadImg(file);
+    $("preview").src = img.src; $("preview").style.display = "block";
+    pendingThumb = toJpeg(img, 240, 0.7);
+    setStatus(st, `<span class="spin"></span> Looking for a barcode…`);
+    const barcode = await findBarcode(img);
+    let clues = {barcode};
+    if (canReadCovers()) {
+      setStatus(st, `<span class="spin"></span> Reading the cover…`);
+      const b64 = toJpeg(img, 1400, 0.85).split(",")[1];
+      try {
+        const ai = await identifyCover(b64);
+        clues = {...ai, barcode: barcode || String(ai.barcode || "").replace(/\D/g, ""), year: num(ai.year)};
+      } catch (err) {
+        if (!barcode) throw err;            // barcode alone is still enough to search
+      }
+    } else if (!barcode) {
+      setStatus(st, "No barcode found. Add a free Gemini key in Settings to read covers, or type the details in.", true);
+      $("manualBox").classList.remove("hidden"); return;
+    }
+    fillManual(clues);
+    await runSearch(clues);
+  } catch (e) { setStatus(st, esc(e.message), true); $("manualBox").classList.remove("hidden"); }
+}
+function fillManual(c) {
+  $("mArtist").value = c.artist || ""; $("mTitle").value = c.title || ""; $("mCatno").value = c.catno || "";
+  $("mBarcode").value = c.barcode || ""; $("mLabel").value = c.label || ""; $("mYear").value = c.year || "";
+}
+async function runSearch(q) {
+  pendingClues = q;
+  const st = $("scanStatus"); const box = $("candBox"); box.innerHTML = "";
+  if (!cfg.discogs) { setStatus(st, "Add your Discogs token in Settings first.", true); return; }
+  const what = [q.artist, q.title].filter(Boolean).join(" – ") || q.catno || q.barcode || "record";
+  setStatus(st, `<span class="spin"></span> Searching Discogs for ${esc(what)}…`);
+  try {
+    const res = await searchDiscogs(q);
+    if (!res.length) { setStatus(st, `No Discogs match for ${esc(what)}. Edit the details and search again.`, true); $("manualBox").classList.remove("hidden"); return; }
+    setStatus(st, `Found ${res.length} possible pressing${res.length > 1 ? "s" : ""} of <b>${esc(what)}</b>${q.notes ? ` <span class="small">(${esc(q.notes)})</span>` : ""}. Tap yours:`);
+    box.innerHTML = res.map((r, i) => `<button class="cand" data-i="${i}">
+      <img src="${esc(r.thumb || r.cover_image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">
+      <div class="grow"><div class="t">${esc(r.title)}</div>
+      <div class="small muted">${esc([r.year, r.country, (r.label||[])[0], r.catno].filter(Boolean).join(" · "))}</div>
+      <div class="small muted">${esc((r.format||[]).join(", "))}</div></div></button>`).join("")
+      + `<button id="btnNotListed" style="width:100%;margin-top:6px">Not listed — edit search</button>`;
+    box.querySelectorAll(".cand").forEach(b => b.onclick = () => pickCandidate(res[+b.dataset.i]));
+    $("btnNotListed").onclick = () => { $("manualBox").classList.remove("hidden"); $("mArtist").focus(); };
+  } catch (e) { setStatus(st, esc(e.message), true); }
+}
+async function pickCandidate(r) {
+  const st = $("scanStatus");
+  setStatus(st, `<span class="spin"></span> Getting current values…`);
+  try {
+    const {meta, values} = await fetchValues(r.id);
+    const rec = {id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random(),
+      discogsId: r.id, ...meta, values, condition: cfg.cond, notes: pendingClues?.notes || "",
+      thumb: pendingThumb, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), history: []};
+    snapshot(rec);
+    await DB.put(rec);
+    setStatus(st, "Saved to your collection.");
+    $("candBox").innerHTML = ""; $("preview").style.display = "none"; pendingThumb = "";
+    openDetail(rec.id);
+  } catch (e) { setStatus(st, esc(e.message), true); }
+}
+
+/* ---------- UI: collection ---------- */
+let allRecs = [];
+async function renderList() {
+  allRecs = await DB.all();
+  const f = $("filter").value.toLowerCase();
+  let recs = allRecs.filter(r => !f || `${r.artist} ${r.title} ${r.label} ${r.catno}`.toLowerCase().includes(f));
+  const sort = $("sort").value;
+  recs.sort(sort === "value" ? (a, b) => (estimate(b).value||0) - (estimate(a).value||0)
+    : sort === "artist" ? (a, b) => `${a.artist}${a.title}`.localeCompare(`${b.artist}${b.title}`)
+    : sort === "stale" ? (a, b) => (a.updatedAt||"").localeCompare(b.updatedAt||"")
+    : (a, b) => (b.createdAt||"").localeCompare(a.createdAt||""));
+  const total = allRecs.reduce((s, r) => s + (estimate(r).value || 0), 0);
+  $("totalVal").textContent = allRecs.length ? money(total) : "—";
+  $("totalCount").textContent = `${allRecs.length} record${allRecs.length === 1 ? "" : "s"}`;
+  $("list").innerHTML = recs.length ? recs.map(r => {
+    const e = estimate(r), d = delta(r);
+    return `<div class="item" data-id="${esc(r.id)}">
+      <img src="${esc(r.thumb || r.coverUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">
+      <div class="grow"><div class="t">${esc(r.title)}</div><div class="s muted">${esc(r.artist)}</div>
+      <div class="small muted">${esc(SHORT(r.condition))} · ${esc(ago(r.updatedAt))}</div></div>
+      <div><div class="val">${money(e.value, e.cur)}</div>${d ? `<div class="small ${d > 0 ? "up" : "down"}" style="text-align:right">${d > 0 ? "▲" : "▼"} ${money(Math.abs(d), e.cur)}</div>` : ""}</div></div>`;
+  }).join("") : `<p class="muted">No records yet. Scan one to start.</p>`;
+  $("list").querySelectorAll(".item").forEach(el => el.onclick = () => openDetail(el.dataset.id));
+}
+$("filter").oninput = renderList; $("sort").onchange = renderList;
+function ago(iso) {
+  if (!iso) return "never"; const d = (Date.now() - new Date(iso)) / 86400000;
+  return d < 1 ? "today" : d < 2 ? "yesterday" : d < 60 ? `${Math.floor(d)} days ago` : new Date(iso).toLocaleDateString();
+}
+$("btnRefreshAll").onclick = async () => {
+  const btn = $("btnRefreshAll"), st = $("refreshAllStatus"); btn.disabled = true;
+  const recs = await DB.all(); let ok = 0, fail = 0;
+  for (let i = 0; i < recs.length; i++) {
+    setStatus(st, `<span class="spin"></span> Refreshing ${i + 1} of ${recs.length}: ${esc(recs[i].title)}`);
+    try { await refreshRecord(recs[i], cfg.ebayAll); ok++; } catch { fail++; }
+    await sleep(3200); // ~3 Discogs calls per record; stays under 60/min
+  }
+  setStatus(st, `Updated ${ok} record${ok === 1 ? "" : "s"}${fail ? `, ${fail} failed` : ""}.`, fail > 0);
+  btn.disabled = false; renderList();
+};
+
+/* ---------- UI: detail ---------- */
+async function openDetail(id) {
+  const rec = (await DB.all()).find(r => r.id === id); if (!rec) return;
+  renderDetail(rec);
+  if (!$("detail").classList.contains("on")) openSheet("detail");
+}
+function spark(hist) {
+  const pts = hist.filter(h => h.est != null); if (pts.length < 2) return "";
+  const vals = pts.map(p => p.est), lo = Math.min(...vals), hi = Math.max(...vals), W = 300, H = 60;
+  const xy = pts.map((p, i) => [i / (pts.length - 1) * W, H - 6 - (hi === lo ? 0.5 : (p.est - lo) / (hi - lo)) * (H - 12)]);
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none"><polyline fill="none" stroke="var(--accent)" stroke-width="2.5" points="${xy.map(p => p.join(",")).join(" ")}"/></svg>`;
+}
+function renderDetail(rec) {
+  const v = rec.values || {}, e = estimate(rec), q = encodeURIComponent(`${rec.artist} ${rec.title} ${rec.catno || ""}`.trim());
+  const sugRows = CONDS.filter(c => v.suggested?.[c] != null).map(c =>
+    `<tr class="${c === rec.condition ? "sel" : ""}"><td>${esc(c)}</td><td>${money(v.suggested[c], v.suggCur)}</td></tr>`).join("");
+  const eb = rec.ebay, ms = mySold(rec);
+  $("detailInner").innerHTML = `
+  <div class="row" style="align-items:center;margin-bottom:12px"><button style="flex:none" onclick="history.back()">← Back</button><span></span></div>
+  <div class="hero"><img src="${esc(rec.coverUrl || rec.thumb)}" alt="" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">
+    <div><h2>${esc(rec.title)}</h2><div>${esc(rec.artist)}</div>
+    <div class="small muted">${esc([rec.label, rec.catno].filter(Boolean).join(" · "))}</div>
+    <div class="small muted">${esc([rec.year, rec.country].filter(Boolean).join(" · "))}</div>
+    <div class="small muted">${esc(rec.format)}</div></div></div>
+
+  <div class="card">
+    <div class="muted small">Estimated value</div>
+    <div class="est">${money(e.value, e.cur)}</div>
+    <div class="small muted">${esc(e.src)} · updated ${esc(ago(rec.updatedAt))}</div>
+    ${spark(rec.history || [])}
+    <label class="f">My copy's condition</label>
+    <select id="dCond">${CONDS.map(c => `<option ${c === rec.condition ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>
+    <div class="row" style="margin-top:12px"><button id="dRefresh" class="primary">↻ Refresh value</button></div>
+    <div id="dStatus" class="status"></div>
+  </div>
+
+  <div class="card"><b>Discogs</b>
+    ${sugRows ? `<table style="margin-top:8px">${sugRows}</table>` : `<p class="small muted">${esc(v.suggNote || "No condition-based price suggestions for this release.")}</p>`}
+    <table style="margin-top:8px">
+      <tr><td>Lowest listed now</td><td>${money(v.lowest, v.lowestCur)}</td></tr>
+      <tr><td>Copies for sale</td><td>${v.numForSale ?? "—"}</td></tr>
+      <tr><td>Have / Want</td><td>${v.have ?? "—"} / ${v.want ?? "—"}</td></tr>
+    </table>
+  </div>
+
+  <div class="card"><b>Check sold prices</b>
+    <p class="small muted" style="margin:4px 0 10px">Opens real sold listings for this record. Enter a typical price you see and it becomes the estimated value.</p>
+    <div class="links">
+      <a class="btn" href="https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=176985&LH_Sold=1&LH_Complete=1" target="_blank" rel="noopener">eBay sold</a>
+      <a class="btn" href="https://www.discogs.com/sell/history/${encodeURIComponent(rec.discogsId)}" target="_blank" rel="noopener">Discogs sales history</a>
+      <a class="btn" href="https://www.popsike.com/php/quicksearch.php?searchtext=${q}" target="_blank" rel="noopener">Popsike</a>
+      <a class="btn" href="${esc(rec.uri || `https://www.discogs.com/release/${rec.discogsId}`)}" target="_blank" rel="noopener">Discogs page</a>
+    </div>
+    <div class="row" style="margin-top:12px;align-items:flex-end">
+      <div><label class="f">Price I saw (${esc(cfg.curr)})</label><input id="dSoldPrice" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></div>
+      <div><label class="f">Where</label><select id="dSoldSrc"><option>eBay sold</option><option>Discogs median</option><option>Discogs last sold</option><option>Popsike</option><option>Other</option></select></div>
+      <button id="dSoldAdd" class="primary" style="flex:none">Save</button>
+    </div>
+    ${(rec.sold||[]).length ? `<table style="margin-top:10px">${[...rec.sold].sort((a, b) => b.date.localeCompare(a.date)).map(s =>
+      `<tr><td>${esc(s.date)} · ${esc(s.source)}</td><td>${money(s.price)} <button class="soldDel" data-k="${esc(s.k)}" aria-label="Remove" style="padding:2px 8px;margin-left:6px">×</button></td></tr>`).join("")}</table>
+      ${ms && (Date.now() - new Date(ms.newest)) / 86400000 > 90 ? `<p class="small muted">Your latest check is over 3 months old. Worth a fresh look.</p>` : ""}` : ""}
+  </div>
+
+  ${cfg.claude || eb ? `<div class="card"><b>Automatic sold-price check</b> <span class="pill">Claude · paid</span>
+    ${eb ? `<div class="est" style="font-size:26px">${money(eb.avg)}</div>
+      <div class="small muted">Range ${money(eb.low)} – ${money(eb.high)} · ${eb.count || 0} sales${eb.discogsMedian != null ? ` · Discogs median ${money(eb.discogsMedian)}` : ""} · checked ${esc(ago(eb.fetchedAt))}</div>
+      <p class="small">${esc(eb.basis)}</p>
+      ${(eb.sources||[]).map(s => `<div class="small"><a href="${esc(s.url)}" target="_blank" rel="noopener" style="color:var(--accent)">${esc(s.title || s.url)}</a></div>`).join("")}`
+      : `<p class="small muted">Claude searches the web for recent sold prices (a few cents per check).</p>`}
+    ${rec.ebayError ? `<p class="small" style="color:var(--bad)">Last check failed: ${esc(rec.ebayError)}</p>` : ""}
+    ${cfg.claude ? `<button id="dEbay" style="width:100%;margin-top:8px">${eb ? "Re-check" : "Run check"}</button>` : ""}
+  </div>` : ""}
+
+  <div class="card"><b>Notes</b><textarea id="dNotes" placeholder="Where you bought it, price paid, condition details…">${esc(rec.notes)}</textarea></div>
+
+  ${(rec.history||[]).length ? `<div class="card"><b>Value history</b><table style="margin-top:6px">
+    ${[...rec.history].reverse().map(h => `<tr><td>${esc(h.date)}</td><td>${money(h.est)}${h.lowest != null ? ` <span class="small muted">(lowest listed ${money(h.lowest)})</span>` : ""}</td></tr>`).join("")}
+  </table></div>` : ""}
+
+  <button id="dDelete" style="width:100%;color:var(--bad);margin-top:8px">Delete from collection</button>`;
+
+  $("dCond").onchange = async () => { rec.condition = $("dCond").value; snapshot(rec); await DB.put(rec); renderDetail(rec); };
+  $("dSoldAdd").onclick = async () => {
+    const p = parseFloat($("dSoldPrice").value);
+    if (!(p >= 0)) { $("dSoldPrice").focus(); return; }
+    rec.sold = [...(rec.sold || []), {k: String(Date.now()), date: today(), price: p, source: $("dSoldSrc").value}];
+    rec.updatedAt = new Date().toISOString();
+    snapshot(rec); await DB.put(rec); renderDetail(rec); toast("Sold price saved");
+  };
+  $("detailInner").querySelectorAll(".soldDel").forEach(b => b.onclick = async () => {
+    rec.sold = (rec.sold || []).filter(s => s.k !== b.dataset.k);
+    snapshot(rec); await DB.put(rec); renderDetail(rec);
+  });
+  $("dNotes").onchange = async () => { rec.notes = $("dNotes").value; await DB.put(rec); toast("Notes saved"); };
+  $("dRefresh").onclick = async () => {
+    const b = $("dRefresh"); b.disabled = true; setStatus($("dStatus"), `<span class="spin"></span> Refreshing from Discogs…`);
+    try { await refreshRecord(rec, false); renderDetail(rec); toast("Value updated"); }
+    catch (err) { setStatus($("dStatus"), esc(err.message), true); b.disabled = false; }
+  };
+  if ($("dEbay")) $("dEbay").onclick = async () => {
+    const b = $("dEbay"); b.disabled = true; b.innerHTML = `<span class="spin"></span> Searching sold listings (30–90 s)…`;
+    try { rec.ebay = await ebayCheck(rec); delete rec.ebayError; snapshot(rec); await DB.put(rec); renderDetail(rec); }
+    catch (err) { rec.ebayError = err.message; await DB.put(rec); renderDetail(rec); }
+  };
+  $("dDelete").onclick = async () => {
+    if (!confirm(`Delete "${rec.title}" from your collection?`)) return;
+    await DB.del(rec.id); history.back(); toast("Deleted");
+  };
+}
+
+/* ---------- boot ---------- */
+checkSetup();
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
